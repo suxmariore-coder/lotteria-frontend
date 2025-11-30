@@ -5,14 +5,66 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lotteria</title>
   <style>
-    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 10px; }
-    #grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 5px; width: 100%; max-width: 500px; margin-top: 20px; }
-    .number { width: 100%; padding-top: 100%; position: relative; border-radius: 5px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; background-color: green; color: white; text-align: center; }
-    .number.taken { background-color: red; cursor: default; }
-    .number span { position: absolute; top: 10%; left: 50%; transform: translateX(-50%); }
-    .buyer-name { position: absolute; bottom: 40px; font-size: 10px; color: black; width: 100%; text-align: center; }
-    .payment-buttons { position: absolute; bottom: 2px; display: flex; gap: 2px; justify-content: center; width: 100%; }
-    .payment-buttons button { font-size: 10px; padding: 2px; flex: 1; }
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+      gap: 5px;
+      width: 100%;
+      max-width: 500px;
+      margin-top: 20px;
+    }
+    .number {
+      width: 100%;
+      padding-top: 100%;
+      position: relative;
+      border-radius: 5px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background-color: green;
+      color: white;
+      text-align: center;
+    }
+    .number.taken {
+      background-color: red;
+      cursor: default;
+    }
+    .number span {
+      position: absolute;
+      top: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .buyer-name {
+      position: absolute;
+      bottom: 40px;
+      font-size: 10px;
+      color: black;
+      width: 100%;
+      text-align: center;
+    }
+    .payment-buttons {
+      position: absolute;
+      bottom: 2px;
+      display: flex;
+      gap: 2px;
+      justify-content: center;
+      width: 100%;
+    }
+    .payment-buttons button {
+      font-size: 10px;
+      padding: 2px;
+      flex: 1;
+    }
   </style>
 </head>
 <body>
@@ -43,7 +95,7 @@
         div.classList.add("number");
 
         const numero = num.numero || "?";
-        const buyer = num.acquirente || "";
+        const buyer = num.nome_acquirente || "";
         const acquistato = buyer && buyer.trim() !== "";
 
         if (acquistato) div.classList.add("taken");
@@ -58,7 +110,6 @@
           b.innerText = buyer;
           div.appendChild(b);
         } else {
-          // crea i bottoni dei pagamenti
           const buttonsDiv = document.createElement("div");
           buttonsDiv.classList.add("payment-buttons");
 
@@ -72,7 +123,6 @@
 
           buttonsDiv.appendChild(paypalBtn);
           buttonsDiv.appendChild(revolutBtn);
-
           div.appendChild(buttonsDiv);
         }
 
@@ -94,12 +144,12 @@
         const res = await fetch(BACKEND_URL + "/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ numero: num, acquirente: buyer })
+          body: JSON.stringify({ numero: num, nome_acquirente: buyer })
         });
 
         if (!res.ok) throw new Error("Errore conferma pagamento");
 
-        await loadNumbers(); // aggiorna subito la griglia
+        await loadNumbers();
       } catch (err) {
         console.error("Errore acquisto numero:", err);
         alert("Errore nell'acquisto, riprova.");
