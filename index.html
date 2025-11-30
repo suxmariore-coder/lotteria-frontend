@@ -77,15 +77,38 @@
         color: white;
     }
 
+    /* Pulsanti admin */
+    #admin-controls {
+        margin: 20px 0;
+    }
+
+    #admin-controls button {
+        padding: 8px 16px;
+        margin: 5px;
+        font-size: 14px;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    #admin-controls button:hover {
+        opacity: 0.8;
+    }
 </style>
 </head>
 
 <body>
 <h1>Tabella Numeri 1-90</h1>
+
+<div id="admin-controls">
+    <button onclick="resetGriglia()">Reset Griglia (Admin)</button>
+    <button onclick="resetSingoloPrompt()">Reset Numero (Admin)</button>
+</div>
+
 <div id="grid"></div>
 
 <script>
 const BACKEND_URL = "https://lotteria-backend-ar6m.onrender.com";
+const ADMIN_PASSWORD = "Napoli-1926"; // nuova password admin
 
 // Carica numeri dal backend
 async function loadNumbers() {
@@ -185,6 +208,35 @@ function confirmPurchase(n, nome) {
 // Aggiorna griglia ogni 3 secondi
 setInterval(loadNumbers, 3000);
 loadNumbers();
+
+// ------------------ RESET ADMIN ------------------
+
+// Reset intera griglia
+function resetGriglia() {
+    const pw = prompt("Password admin:");
+    if (pw !== ADMIN_PASSWORD) { alert("Password errata!"); return; }
+
+    fetch(BACKEND_URL + "/reset", { method: "POST" })
+    .then(() => loadNumbers())
+    .catch(err => alert("Errore reset griglia"));
+}
+
+// Reset singolo numero
+function resetSingoloPrompt() {
+    const pw = prompt("Password admin:");
+    if (pw !== ADMIN_PASSWORD) { alert("Password errata!"); return; }
+
+    const n = prompt("Numero da resettare (1-90):");
+    if (!n) return;
+
+    resetSingolo(n);
+}
+
+function resetSingolo(n) {
+    fetch(`${BACKEND_URL}/reset/${n}`, { method: "POST" })
+    .then(() => loadNumbers())
+    .catch(err => alert("Errore reset numero"));
+}
 </script>
 
 </body>
