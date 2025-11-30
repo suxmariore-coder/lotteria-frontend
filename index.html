@@ -86,13 +86,23 @@
                     const div = document.createElement("div");
                     div.textContent = n.numero + (n.acquistato && n.nome_acquirente ? ` (${n.nome_acquirente})` : "");
                     div.className = "number" + (n.acquistato ? " acquistato" : "");
+
+                    // Se il numero NON è acquistato, renderlo cliccabile
                     if (!n.acquistato) {
                         div.onclick = () => {
                             selectedNumber = n.numero;
+                            // Rimuove outline da tutti
                             document.querySelectorAll(".number").forEach(el => el.style.outline = "");
+                            // Evidenzia il selezionato
                             div.style.outline = "3px solid #FFD700";
                         }
                     }
+
+                    // Se il numero resettato era precedentemente selezionato, mostra outline
+                    if (selectedNumber === n.numero && !n.acquistato) {
+                        div.style.outline = "3px solid #FFD700";
+                    }
+
                     grid.appendChild(div);
                 });
             } catch (err) {
@@ -163,6 +173,7 @@
                     });
                 }
                 alert("Griglia resettata!");
+                selectedNumber = null;
                 loadNumbers();
             } catch (err) {
                 console.error("Errore reset griglia:", err);
@@ -182,7 +193,7 @@
                     body: JSON.stringify({ numero: selectedNumber })
                 });
                 alert(`Numero ${selectedNumber} resettato!`);
-                selectedNumber = null;
+                // Mantieni selectedNumber per poterlo selezionare subito
                 loadNumbers();
             } catch (err) {
                 console.error("Errore reset numero:", err);
