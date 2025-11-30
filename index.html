@@ -1,229 +1,252 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lotteria 1-90</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            text-align: center;
-            background: #f5f5f5;
-        }
-        h1 { margin: 20px 0; }
-        #grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
-            gap: 5px;
-            max-width: 500px;
-            margin: 0 auto;
-        }
-        .number {
-            padding: 15px;
-            background: #4CAF50;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 5px;
-            user-select: none;
-        }
-        .number.acquistato {
-            background: #f44336;
-            cursor: not-allowed;
-        }
-        #buyerName, #adminPassword {
-            padding: 10px;
-            margin: 10px 0;
-            width: 80%;
-            max-width: 300px;
-        }
-        #paymentMethods button, #resetSection button {
-            padding: 10px 15px;
-            margin: 5px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        @media (max-width: 600px) {
-            .number { padding: 10px; font-size: 14px; }
-        }
-    </style>
-
-    <!-- PayPal SDK -->
-    <script src="https://www.paypal.com/sdk/js?client-id=YOUR_CLIENT_ID&currency=EUR"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Lotteria 1–90</title>
+  <style>
+    :root{--green:#4CAF50;--red:#c0392b;--muted:#f5f5f5;--accent:#ffd54f}
+    body{font-family:Arial,Helvetica,sans-serif;background:var(--muted);margin:0;padding:16px;display:flex;flex-direction:column;align-items:center;}
+    h1{margin:8px 0 12px;font-size:20px}
+    #grid{width:100%;max-width:520px;display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(44px,1fr));}
+    .cell{position:relative;padding-top:100%;border-radius:8px;overflow:hidden;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+    .cell .label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:16px}
+    .cell.available{background:var(--green)}
+    .cell.taken{background:var(--red);cursor:default}
+    .cell .buyer{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:11px;color:#fff;background:rgba(0,0,0,0.12);padding:2px 4px}
+    .outline{outline:3px solid var(--accent);outline-offset:2px;border-radius:8px}
+    /* controls */
+    #controls{width:100%;max-width:520px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+    input[type="text"], input[type="password"]{padding:10px;border-radius:6px;border:1px solid #ddd;width:calc(100% - 20px);max-width:320px}
+    button.btn{padding:10px 14px;border-radius:6px;border:none;cursor:pointer;background:#2b8cff;color:#fff;font-weight:600}
+    button.ghost{background:#777}
+    /* modal */
+    #modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:9999}
+    #modal .box{width:92%;max-width:360px;background:#fff;padding:16px;border-radius:10px;text-align:center}
+    #modal h3{margin:6px 0 12px}
+    .pay-btn{padding:10px 12px;margin:6px;border-radius:6px;border:none;font-weight:700;cursor:pointer}
+    .pay-paypal{background:#003087;color:#fff}
+    .pay-revolut{background:#1f1f1f;color:#fff}
+    @media (max-width:420px){.cell .label{font-size:14px}}
+  </style>
 </head>
 <body>
-    <h1>Lotteria 1-90</h1>
-    <input type="text" id="buyerName" placeholder="Inserisci il tuo nome">
-    <div id="grid"></div>
 
-    <div id="paymentMethods">
-        <div id="paypal-button-container"></div>
-        <button onclick="buyRevolut()">Revolut</button>
+  <h1>Lotteria 1–90</h1>
+
+  <div id="grid" aria-live="polite"></div>
+
+  <div id="controls">
+    <input id="buyerInput" type="text" placeholder="Inserisci il tuo nome">
+    <input id="adminPassword" type="password" placeholder="Password admin (per reset)">
+    <button class="btn" onclick="resetGrid()">Reset Griglia</button>
+    <button class="btn ghost" onclick="resetSelected()">Reset Numero Selezionato</button>
+  </div>
+
+  <!-- Modal di acquisto -->
+  <div id="modal" role="dialog" aria-modal="true">
+    <div class="box">
+      <h3 id="modalTitle">Acquista numero</h3>
+      <input id="modalName" type="text" placeholder="Il tuo nome" style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;margin-bottom:8px">
+      <div>
+        <button class="pay-btn pay-paypal" id="btnPaypal">Paga con PayPal</button>
+        <button class="pay-btn pay-revolut" id="btnRevolut">Paga con Revolut</button>
+      </div>
+      <div style="margin-top:10px">
+        <button style="padding:8px 12px;border-radius:6px;border:none;background:#ccc" onclick="closeModal()">Annulla</button>
+      </div>
     </div>
+  </div>
 
-    <div id="resetSection" style="margin-top:20px;">
-        <input type="password" id="adminPassword" placeholder="Inserisci password admin">
-        <button onclick="resetAll()">Reset Griglia</button>
-        <button onclick="resetSingle()">Reset Numero Selezionato</button>
-    </div>
+<script>
+  const BACKEND_URL = "https://lotteria-backend-ar6m.onrender.com";
+  const PAYPAL_ME = "https://www.paypal.me/reimar2002/2";
+  const REVOLUT_LINK = "https://revolut.me/marioreita";
+  const ADMIN_PWD = "Napoli-1926";
 
-    <script>
-        const BACKEND_URL = "https://lotteria-backend-ar6m.onrender.com";
-        const ADMIN_PASSWORD = "Napoli-1926";
+  let numbersCache = [];     // ultimo snapshot dal backend
+  let selectedNumber = null; // numero selezionato (int)
 
-        let selectedNumber = null;
-        let buyerName = "";
+  // carica numeri da backend e renderizza
+  async function loadNumbers(){
+    try {
+      const res = await fetch(BACKEND_URL + "/numbers");
+      if (!res.ok) throw new Error("fetch error " + res.status);
+      const arr = await res.json();
+      numbersCache = Array.isArray(arr) ? arr : [];
+      renderGrid(numbersCache);
+    } catch(err){
+      console.error("loadNumbers:", err);
+      document.getElementById("grid").innerHTML = "<div style='grid-column:1/-1;color:#777;padding:12px'>Errore caricamento numeri</div>";
+    }
+  }
 
-        async function loadNumbers() {
-            try {
-                const res = await fetch(BACKEND_URL + "/numbers");
-                const numbers = await res.json();
+  function renderGrid(arr){
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    arr.forEach(item => {
+      const n = document.createElement("div");
+      const num = item.numero ?? item.number ?? item.id ?? "?";
+      const buyer = item.nome_acquirente ?? item.acquirente ?? item.buyer ?? "";
+      const taken = !!(item.acquistato || (typeof item.acquistato === "boolean" ? item.acquistato : false) || (buyer && buyer.trim() !== ""));
+      n.className = "cell " + (taken ? "taken" : "available");
+      n.innerHTML = `<div class="label">${num}</div>`;
+      if (taken && buyer) {
+        const b = document.createElement("div");
+        b.className = "buyer";
+        b.textContent = buyer;
+        n.appendChild(b);
+      }
+      // click solo se disponibile
+      if (!taken) {
+        n.addEventListener("click", () => {
+          selectedNumber = num;
+          // highlight
+          document.querySelectorAll(".cell").forEach(c => c.classList.remove("outline"));
+          n.classList.add("outline");
+          // apri modal
+          openModal(num);
+        });
+      }
+      // mantieni outline se era selezionato e ancora disponibile
+      if (selectedNumber === num && !taken) n.classList.add("outline");
+      grid.appendChild(n);
+    });
+  }
 
-                const grid = document.getElementById("grid");
-                grid.innerHTML = "";
+  // ----- MODAL -----
+  function openModal(num){
+    document.getElementById("modalTitle").textContent = "Acquista numero " + num;
+    const buyerVal = (document.getElementById("buyerInput").value || "").trim();
+    document.getElementById("modalName").value = buyerVal;
+    document.getElementById("modal").style.display = "flex";
+  }
+  function closeModal(){
+    document.getElementById("modal").style.display = "none";
+  }
 
-                numbers.forEach(n => {
-                    const div = document.createElement("div");
-                    div.textContent = n.numero + (n.acquistato && n.nome_acquirente ? ` (${n.nome_acquirente})` : "");
-                    div.className = "number" + (n.acquistato ? " acquistato" : "");
+  // invia conferma al backend (scrive DB)
+  async function confirmPurchase(num, nome) {
+    try {
+      const response = await fetch(BACKEND_URL + "/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numero: num, nome_acquirente: nome })
+      });
+      if (!response.ok) {
+        const txt = await response.text().catch(()=>"");
+        console.error("confirmPurchase HTTP", response.status, txt);
+        throw new Error("Errore conferma");
+      }
+      const data = await response.json().catch(()=>({}));
+      console.log("confirmPurchase ok:", data);
+      return true;
+    } catch(e) {
+      console.error("confirmPurchase:", e);
+      return false;
+    }
+  }
 
-                    if (!n.acquistato) {
-                        div.onclick = () => {
-                            selectedNumber = n.numero;
-                            document.querySelectorAll(".number").forEach(el => el.style.outline = "");
-                            div.style.outline = "3px solid #FFD700";
-                        }
-                    }
+  // pulsante PayPal nel modal: apre link e poi conferma al backend
+  document.getElementById("btnPaypal").addEventListener("click", async () => {
+    const nome = (document.getElementById("modalName").value || "").trim();
+    if (!nome) { alert("Inserisci il tuo nome"); return; }
+    const num = selectedNumber;
+    if (!num) { alert("Numero non selezionato"); closeModal(); return; }
 
-                    if (selectedNumber === n.numero && !n.acquistato) {
-                        div.style.outline = "3px solid #FFD700";
-                    }
+    // apri pagamento in nuova scheda
+    window.open(PAYPAL_ME, "_blank");
 
-                    grid.appendChild(div);
-                });
-            } catch (err) {
-                console.error("Errore caricamento numeri:", err);
-            }
-        }
+    // conferma lato backend (assumiamo che dopo il pagamento l'utente confermi)
+    const ok = await confirmPurchase(num, nome);
+    if (ok) {
+      closeModal();
+      // aggiorna input principale
+      document.getElementById("buyerInput").value = "";
+      selectedNumber = null;
+      await loadNumbers();
+      alert("Acquisto registrato! (Ricorda di verificare il pagamento su PayPal).");
+    } else {
+      alert("Errore registrazione acquisto. Riprova.");
+    }
+  });
 
-        async function confirmPurchase(numero, nome) {
-            try {
-                const response = await fetch(BACKEND_URL + "/confirm", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ numero, nome_acquirente: nome })
-                });
+  // pulsante Revolut: apre link, poi conferma
+  document.getElementById("btnRevolut").addEventListener("click", async () => {
+    const nome = (document.getElementById("modalName").value || "").trim();
+    if (!nome) { alert("Inserisci il tuo nome"); return; }
+    const num = selectedNumber;
+    if (!num) { alert("Numero non selezionato"); closeModal(); return; }
 
-                if (!response.ok) {
-                    console.error("Errore HTTP:", response.status);
-                    throw new Error("Errore conferma pagamento");
-                }
+    window.open(REVOLUT_LINK, "_blank");
 
-                const data = await response.json();
-                console.log("Risposta backend:", data);
+    const ok = await confirmPurchase(num, nome);
+    if (ok) {
+      closeModal();
+      document.getElementById("buyerInput").value = "";
+      selectedNumber = null;
+      await loadNumbers();
+      alert("Acquisto registrato! (Verifica il pagamento su Revolut).");
+    } else {
+      alert("Errore registrazione acquisto. Riprova.");
+    }
+  });
 
-                if (data.success) return true;
-                else throw new Error("Backend ha risposto con success = false");
+  // ----- RESET -----
+  async function resetGrid() {
+    const pwd = document.getElementById("adminPassword").value;
+    if (pwd !== ADMIN_PWD) { alert("Password errata"); return; }
+    if (!confirm("Sei sicuro di resettare TUTTA la griglia?")) return;
 
-            } catch (err) {
-                console.error("Errore conferma:", err);
-                throw err;
-            }
-        }
+    try {
+      // chiamata singola lato backend per resettare tutti i numeri (più efficiente se backend ha endpoint)
+      // se il backend ha solo reset singolo, cicla 1..90
+      for (let i=1;i<=90;i++){
+        await fetch(BACKEND_URL + "/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ numero: i })
+        });
+      }
+      selectedNumber = null;
+      await loadNumbers();
+      alert("Griglia resettata");
+    } catch(e){
+      console.error("resetGrid:", e);
+      alert("Errore reset");
+    }
+  }
 
-        // -------------------------------
-        // PAYPAL
-        paypal.Buttons({
-            createOrder: function(data, actions) {
-                return actions.order.create({
-                    purchase_units: [{
-                        amount: { value: '2.00' }
-                    }]
-                });
-            },
-            onApprove: function(data, actions) {
-                return actions.order.capture().then(async function(details) {
-                    const buyerName = document.getElementById("buyerName").value.trim();
-                    const numero = selectedNumber;
-                    if (!numero || !buyerName) {
-                        alert("Seleziona un numero e inserisci il tuo nome!");
-                        return;
-                    }
-                    await confirmPurchase(numero, buyerName);
-                    alert(`Numero ${numero} acquistato con PayPal!`);
-                    selectedNumber = null;
-                    document.getElementById("buyerName").value = "";
-                    loadNumbers();
-                });
-            }
-        }).render('#paypal-button-container');
+  async function resetSelected(){
+    const pwd = document.getElementById("adminPassword").value;
+    if (pwd !== ADMIN_PWD) { alert("Password errata"); return; }
+    if (!selectedNumber) { alert("Seleziona un numero prima"); return; }
 
-        // -------------------------------
-        // REVOLUT
-        async function buyRevolut() {
-            const buyerName = document.getElementById("buyerName").value.trim();
-            if (!selectedNumber || !buyerName) {
-                alert("Seleziona un numero e inserisci il tuo nome!");
-                return;
-            }
+    try {
+      await fetch(BACKEND_URL + "/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numero: selectedNumber })
+      });
+      await loadNumbers();
+      alert("Numero resettato");
+    } catch(e){
+      console.error("resetSelected:", e);
+      alert("Errore reset numero");
+    }
+  }
 
-            const confirmPay = confirm("Hai completato il pagamento su Revolut? Clicca OK per confermare l'acquisto.");
-            if (!confirmPay) return;
+  // Aggiornamento periodico per sincronizzare
+  setInterval(loadNumbers, 3000);
 
-            await confirmPurchase(selectedNumber, buyerName);
-            alert(`Numero ${selectedNumber} acquistato con Revolut!`);
-            selectedNumber = null;
-            document.getElementById("buyerName").value = "";
-            loadNumbers();
-        }
+  // sincronizza anche l'input principale nel modal quando l'utente digita
+  document.getElementById("buyerInput").addEventListener("input", (e)=>{
+    const val = e.target.value;
+    document.getElementById("modalName").value = val;
+  });
 
-        // -------------------------------
-        // RESET
-        async function resetAll() {
-            const pwd = document.getElementById("adminPassword").value;
-            if (pwd !== ADMIN_PASSWORD) { alert("Password errata!"); return; }
-            if (!confirm("Sei sicuro di voler resettare TUTTA la griglia?")) return;
-
-            try {
-                for (let i = 1; i <= 90; i++) {
-                    await fetch(BACKEND_URL + "/reset", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ numero: i })
-                    });
-                }
-                alert("Griglia resettata!");
-                selectedNumber = null;
-                loadNumbers();
-            } catch (err) {
-                console.error("Errore reset griglia:", err);
-                alert("Errore durante il reset");
-            }
-        }
-
-        async function resetSingle() {
-            const pwd = document.getElementById("adminPassword").value;
-            if (pwd !== ADMIN_PASSWORD) { alert("Password errata!"); return; }
-            if (!selectedNumber) { alert("Seleziona prima un numero!"); return; }
-
-            try {
-                await fetch(BACKEND_URL + "/reset", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ numero: selectedNumber })
-                });
-                alert(`Numero ${selectedNumber} resettato!`);
-                loadNumbers();
-            } catch (err) {
-                console.error("Errore reset numero:", err);
-                alert("Errore durante il reset");
-            }
-        }
-
-        loadNumbers();
-    </script>
+  // inizializza
+  loadNumbers();
+</script>
 </body>
 </html>
