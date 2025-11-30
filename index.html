@@ -33,13 +33,13 @@
             background: #f44336;
             cursor: not-allowed;
         }
-        #buyerName {
+        #buyerName, #adminPassword {
             padding: 10px;
             margin: 10px 0;
             width: 80%;
             max-width: 300px;
         }
-        #paymentMethods button {
+        #paymentMethods button, #resetSection button {
             padding: 10px 15px;
             margin: 5px;
             border: none;
@@ -55,13 +55,22 @@
     <h1>Lotteria 1-90</h1>
     <input type="text" id="buyerName" placeholder="Inserisci il tuo nome">
     <div id="grid"></div>
+
     <div id="paymentMethods">
         <button onclick="buy('paypal')">PayPal</button>
         <button onclick="buy('revolut')">Revolut</button>
     </div>
 
+    <div id="resetSection" style="margin-top:20px;">
+        <input type="password" id="adminPassword" placeholder="Inserisci password admin">
+        <button onclick="resetAll()">Reset Griglia</button>
+        <button onclick="resetSingle()">Reset Numero Selezionato</button>
+    </div>
+
     <script>
         const BACKEND_URL = "https://lotteria-backend-ar6m.onrender.com";
+        const ADMIN_PASSWORD = "Napoli-1926";
+
         let selectedNumber = null;
         let buyerName = "";
 
@@ -127,9 +136,7 @@
             }
 
             try {
-                // Qui puoi integrare PayPal o Revolut SDK se vuoi reale pagamento
-                console.log("Metodo scelto:", method);
-
+                console.log("Metodo scelto:", method); // placeholder per pagamento reale
                 const ok = await confirmPurchase(selectedNumber, buyerName);
                 if (ok) {
                     alert(`Numero ${selectedNumber} acquistato con successo!`);
@@ -139,6 +146,47 @@
                 }
             } catch (err) {
                 alert("Errore nell'acquisto. Riprova.");
+            }
+        }
+
+        async function resetAll() {
+            const pwd = document.getElementById("adminPassword").value;
+            if (pwd !== ADMIN_PASSWORD) { alert("Password errata!"); return; }
+            if (!confirm("Sei sicuro di voler resettare TUTTA la griglia?")) return;
+
+            try {
+                for (let i = 1; i <= 90; i++) {
+                    await fetch(BACKEND_URL + "/reset", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ numero: i })
+                    });
+                }
+                alert("Griglia resettata!");
+                loadNumbers();
+            } catch (err) {
+                console.error("Errore reset griglia:", err);
+                alert("Errore durante il reset");
+            }
+        }
+
+        async function resetSingle() {
+            const pwd = document.getElementById("adminPassword").value;
+            if (pwd !== ADMIN_PASSWORD) { alert("Password errata!"); return; }
+            if (!selectedNumber) { alert("Seleziona prima un numero!"); return; }
+
+            try {
+                await fetch(BACKEND_URL + "/reset", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ numero: selectedNumber })
+                });
+                alert(`Numero ${selectedNumber} resettato!`);
+                selectedNumber = null;
+                loadNumbers();
+            } catch (err) {
+                console.error("Errore reset numero:", err);
+                alert("Errore durante il reset");
             }
         }
 
