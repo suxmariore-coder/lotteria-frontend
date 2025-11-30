@@ -25,64 +25,102 @@
       padding-top: 100%;
       position: relative;
       border-radius: 5px;
+      background-color: green;
+      color: white;
       font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      background-color: green;
-      color: white;
-      text-align: center;
     }
-    .number.taken {
+    .taken {
       background-color: red;
       cursor: default;
     }
-    .number span {
-      position: absolute;
-      top: 10%;
-      left: 50%;
-      transform: translateX(-50%);
-    }
     .buyer-name {
       position: absolute;
-      bottom: 40px;
-      font-size: 10px;
-      color: black;
+      bottom: 5px;
       width: 100%;
       text-align: center;
-    }
-    .payment-buttons {
-      position: absolute;
-      bottom: 2px;
-      display: flex;
-      gap: 2px;
-      justify-content: center;
-      width: 100%;
-    }
-    .payment-buttons button {
       font-size: 10px;
-      padding: 2px;
-      flex: 1;
+      color: black;
+    }
+    #modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+    #modal-content {
+      background: white;
+      padding: 20px;
+      width: 90%;
+      max-width: 300px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    #modal input {
+      width: 90%;
+      padding: 8px;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    #modal button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      background: #007bff;
+      color: white;
     }
   </style>
 </head>
 <body>
+
   <h1>Lotteria 1–90</h1>
+
   <div id="grid"></div>
+
+  <!-- MODAL -->
+  <div id="modal">
+    <div id="modal-content">
+      <h3 id="modal-title"></h3>
+      <input type="text" id="buyer-name" placeholder="Il tuo nome">
+      <button onclick="pay('paypal')">Paga con PayPal</button>
+      <button onclick="pay('revolut')" style="background:#2929ff;">Paga con Revolut</button>
+      <button onclick="closeModal()" style="background:#999;">Annulla</button>
+    </div>
+  </div>
 
   <script>
     const BACKEND_URL = "https://lotteria-backend-ar6m.onrender.com";
 
+    let selectedNumber = null;
+
+    function openModal(num) {
+      selectedNumber = num;
+      document.getElementById("modal-title").innerText = "Acquista numero " + num;
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    function closeModal() {
+      document.getElementById("modal").style.display = "none";
+      document.getElementById("buyer-name").value = "";
+      selectedNumber = null;
+    }
+
     async function loadNumbers() {
       try {
         const res = await fetch(BACKEND_URL + "/numbers");
-        if (!res.ok) throw new Error("Errore fetch: status " + res.status);
         const numbers = await res.json();
-        if (!Array.isArray(numbers)) throw new Error("Risposta non valida");
         renderGrid(numbers);
       } catch (err) {
-        console.error("Impossibile caricare numeri:", err);
+        console.error("Errore caricamento numeri:", err);
       }
     }
 
@@ -94,52 +132,46 @@
         const div = document.createElement("div");
         div.classList.add("number");
 
-        const numero = num.numero || "?";
+        const numero = num.numero;
         const buyer = num.nome_acquirente || "";
-        const acquistato = buyer && buyer.trim() !== "";
+        const taken = buyer.trim() !== "";
 
-        if (acquistato) div.classList.add("taken");
+        if (taken) div.classList.add("taken");
 
-        const spanNum = document.createElement("span");
-        spanNum.innerText = numero;
-        div.appendChild(spanNum);
+        div.innerHTML = numero;
 
-        if (acquistato) {
+        if (taken) {
           const b = document.createElement("div");
           b.classList.add("buyer-name");
           b.innerText = buyer;
           div.appendChild(b);
         } else {
-          const buttonsDiv = document.createElement("div");
-          buttonsDiv.classList.add("payment-buttons");
-
-          const paypalBtn = document.createElement("button");
-          paypalBtn.innerText = "PayPal";
-          paypalBtn.onclick = () => buyNumber(numero, "paypal");
-
-          const revolutBtn = document.createElement("button");
-          revolutBtn.innerText = "Revolut";
-          revolutBtn.onclick = () => buyNumber(numero, "revolut");
-
-          buttonsDiv.appendChild(paypalBtn);
-          buttonsDiv.appendChild(revolutBtn);
-          div.appendChild(buttonsDiv);
+          div.onclick = () => openModal(numero);
         }
 
         grid.appendChild(div);
       });
     }
 
-    async function buyNumber(num, metodo) {
-      const buyer = prompt("Inserisci il tuo nome per acquistare il numero " + num + ":");
-      if (!buyer) return;
+    function pay(method) {
+      const buyer = document.getElementById("buyer-name").value.trim();
+      if (!buyer) {
+        alert("Inserisci il tuo nome.");
+        return;
+      }
 
-      const paymentUrl = metodo === "paypal"
-        ? "https://www.paypal.com/paypalme/reimar2002/2"
-        : "https://revolut.me/marioreita";
+      const payUrl =
+        method === "paypal"
+          ? "https://www.paypal.com/paypalme/reimar2002/2"
+          : "https://revolut.me/marioreita";
 
-      alert("Procedi al pagamento: " + paymentUrl);
+      alert("Ora procedi al pagamento: " + payUrl);
 
+      confirmPurchase(selectedNumber, buyer);
+      closeModal();
+    }
+
+    async function confirmPurchase(num, buyer) {
       try {
         const res = await fetch(BACKEND_URL + "/confirm", {
           method: "POST",
@@ -149,15 +181,16 @@
 
         if (!res.ok) throw new Error("Errore conferma pagamento");
 
-        await loadNumbers();
+        loadNumbers();
       } catch (err) {
-        console.error("Errore acquisto numero:", err);
-        alert("Errore nell'acquisto, riprova.");
+        console.error(err);
+        alert("Errore nell'acquisto.");
       }
     }
 
     setInterval(loadNumbers, 3000);
     loadNumbers();
   </script>
+
 </body>
 </html>
