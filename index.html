@@ -1,162 +1,267 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <title>Lotteria 1-90</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; text-align: center; }
-    #grid { width: 90%; margin: 20px auto; display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; }
-    .cell {
-      padding: 15px;
-      border-radius: 10px;
-      background: #4CAF50;
-      color: white;
-      font-size: 18px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    .cell.red { background: #d9534f !important; }
-    .cell:hover { transform: scale(1.05); }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lotteria 1-90</title>
 
-    /* Finestra modale */
-    #modal {
-      position: fixed; left: 0; top: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center;
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f0f0f0;
+        margin: 0;
+        padding: 20px;
+        text-align: center;
     }
-    #modalContent {
-      background: white; padding: 25px; width: 300px; border-radius: 12px;
-      box-shadow: 0 0 10px black;
-    }
-    input, button { width: 100%; padding: 10px; margin-top: 10px; font-size: 16px; }
 
-    #adminPanel { margin-top: 30px; }
-  </style>
+    h1 {
+        margin-bottom: 20px;
+    }
+
+    #grid {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 8px;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    .num {
+        padding: 15px 0;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #c8ffc8;
+        border: 1px solid #999;
+        font-size: 18px;
+        font-weight: bold;
+        transition: 0.2s;
+        position: relative;
+    }
+
+    .num.red {
+        background: #ff7b7b;
+        color: #fff;
+    }
+
+    .buyer {
+        font-size: 10px;
+        display: block;
+        margin-top: 4px;
+        color: #333;
+    }
+
+    /* Popup */
+    #popup {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.6);
+        display: none;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #popupBox {
+        background: #fff;
+        padding: 20px;
+        width: 85%;
+        max-width: 350px;
+        border-radius: 12px;
+        text-align: center;
+    }
+
+    input {
+        width: 90%;
+        padding: 8px;
+        margin: 10px 0;
+        border-radius: 8px;
+        border: 1px solid #aaa;
+    }
+
+    button {
+        padding: 12px;
+        width: 90%;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        margin-top: 10px;
+        cursor: pointer;
+    }
+
+    #payPaypal { background: #0070ba; color: white; }
+    #payRevolut { background: #4e71f2; color: white; }
+    #closePopup { background: #666; color:#fff; }
+
+    /* ADMIN */
+    #adminPanel {
+        margin-top: 25px;
+    }
+
+    #resetBtn {
+        background: #d9534f;
+        color:white;
+        padding:10px 20px;
+        border:none;
+        border-radius:8px;
+        font-size:16px;
+        cursor:pointer;
+    }
+</style>
 </head>
+
 <body>
 
-  <h1>Lotteria 1-90</h1>
+<h1>LOTTERIA 1–90</h1>
 
-  <!-- Griglia -->
-  <div id="grid"></div>
+<div id="grid"></div>
 
-  <!-- Modal -->
-  <div id="modal">
-    <div id="modalContent">
-      <h3 id="modalTitle"></h3>
-      <input type="text" id="buyerName" placeholder="Il tuo nome">
-      <button style="background:#0070ba;color:white;" id="paypalBtn">Paga con PayPal</button>
-      <button style="background:#ff4b4b;color:white;" id="revolutBtn">Paga con Revolut</button>
-      <button onclick="closeModal()">Chiudi</button>
+<div id="adminPanel">
+    <button id="resetBtn">RESET GRIGLIA (admin)</button>
+</div>
+
+<!-- POPUP -->
+<div id="popup">
+    <div id="popupBox">
+        <h3 id="popupTitle"></h3>
+
+        <input type="text" id="userName" placeholder="Il tuo nome" />
+
+        <button id="payPaypal">Paga con PayPal</button>
+        <button id="payRevolut">Paga con Revolut</button>
+        <button id="closePopup">Annulla</button>
     </div>
-  </div>
-
-  <!-- Admin -->
-  <div id="adminPanel">
-    <input type="password" id="adminPwd" placeholder="Password Admin">
-    <button onclick="resetAll()">Reset Totale</button>
-  </div>
+</div>
 
 <script>
-const API = "https://lotteria-backend-ar6m.onrender.com";
+const backend = "https://lotteria-backend-ar6m.onrender.com";
 let selectedNumber = null;
 
-/* ============================
-   CARICA I NUMERI
-============================ */
 async function loadNumbers() {
-  const res = await fetch(API + "/numbers");
-  const numbers = await res.json();
+    const res = await fetch(`${backend}/numbers`);
+    const data = await res.json();
 
-  const grid = document.getElementById("grid");
-  grid.innerHTML = ""; 
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
 
-  numbers.forEach(n => {
-    const div = document.createElement("div");
-    div.className = "cell" + (n.acquistato ? " red" : "");
-    div.textContent = n.numero;
+    data.forEach(n => {
+        const cell = document.createElement("div");
+        cell.className = "num";
+        cell.dataset.num = n.numero;
 
-    div.onclick = () => openModal(n.numero, n.acquistato);
+        if (n.acquistato) cell.classList.add("red");
 
-    grid.appendChild(div);
-  });
-}
+        cell.innerHTML = `
+            ${n.numero}
+            <span class="buyer">${n.nome_acquirente ? n.nome_acquirente : ""}</span>
+        `;
 
-/* ============================
-   MODAL
-============================ */
-function openModal(numero, isRed) {
-  selectedNumber = numero;
-
-  if (isRed) {
-    alert("Numero già acquistato!");
-    return;
-  }
-
-  document.getElementById("modalTitle").textContent = "Numero selezionato: " + numero;
-  document.getElementById("buyerName").value = "";
-  document.getElementById("modal").style.display = "flex";
-}
-
-function closeModal() {
-  document.getElementById("modal").style.display = "none";
-}
-
-/* ============================
-   CONFERMA AUTOMATICA
-============================ */
-async function confirmPurchase(method) {
-  const nome = document.getElementById("buyerName").value.trim();
-
-  if (!nome) {
-    alert("Inserisci il nome");
-    return;
-  }
-
-  await fetch(API + "/confirm", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ 
-      numero: selectedNumber, 
-      nome_acquirente: nome 
-    })
-  });
-
-  closeModal();
-  loadNumbers();
-}
-
-/* CLICK SU PAYPAL O REVOLUT = conferma immediata */
-document.getElementById("paypalBtn").onclick = () => confirmPurchase("paypal");
-document.getElementById("revolutBtn").onclick = () => confirmPurchase("revolut");
-
-/* ============================
-   RESET TOTALE (ADMIN)
-============================ */
-async function resetAll() {
-  const pwd = document.getElementById("adminPwd").value;
-
-  if (pwd !== "reimar2002") {
-    alert("Password sbagliata!");
-    return;
-  }
-
-  if (!confirm("Sicuro di voler resettare tutto?")) return;
-
-  for (let i = 1; i <= 90; i++) {
-    await fetch(API + "/reset", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ numero: i })
+        cell.onclick = () => selectNumber(n);
+        grid.appendChild(cell);
     });
-  }
-
-  alert("Griglia resettata!");
-  loadNumbers();
 }
 
-/* ============================
-   AVVIO
-============================ */
+function selectNumber(n) {
+
+    /* ===========================
+       RESET SINGOLO NUMERO
+    ============================*/
+    if (n.acquistato) {
+        let pw = prompt("Il numero è acquistato. Inserisci password admin per resettarlo:");
+
+        if (pw === "Napoli-1926") {
+            resetSingleNumber(n.numero);
+        } else {
+            alert("Password errata o annullato.");
+        }
+        return;
+    }
+
+    /* ===========================
+       ACQUISTO NORMALE
+    ============================*/
+    selectedNumber = n.numero;
+    document.getElementById("popupTitle").innerText = `Hai scelto il numero ${n.numero}`;
+    document.getElementById("userName").value = "";
+    document.getElementById("popup").style.display = "flex";
+}
+
+async function resetSingleNumber(numero) {
+    const res = await fetch(`${backend}/reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numero })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+        alert("Errore durante il reset");
+        return;
+    }
+
+    alert(`Numero ${numero} resettato`);
+    loadNumbers();
+}
+
+async function confirmPurchase(nome) {
+    const res = await fetch(`${backend}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            numero: selectedNumber,
+            nome_acquirente: nome
+        })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+        alert("Errore nell'acquisto");
+        return;
+    }
+
+    document.getElementById("popup").style.display = "none";
+    loadNumbers();
+}
+
+document.getElementById("payPaypal").onclick = () => {
+    let nome = document.getElementById("userName").value.trim();
+    if (!nome) return alert("Inserisci il nome!");
+
+    window.open("https://paypal.me/reimar2002/2", "_blank");
+    setTimeout(() => confirmPurchase(nome), 1500);
+};
+
+document.getElementById("payRevolut").onclick = () => {
+    let nome = document.getElementById("userName").value.trim();
+    if (!nome) return alert("Inserisci il nome!");
+
+    window.open("https://revolut.me/marioreita", "_blank");
+    setTimeout(() => confirmPurchase(nome), 1500);
+};
+
+document.getElementById("closePopup").onclick = () => {
+    document.getElementById("popup").style.display = "none";
+};
+
+/* RESET ADMIN TOTALE */
+document.getElementById("resetBtn").onclick = async () => {
+    let pw = prompt("Inserisci password admin:");
+
+    if (pw !== "Napoli-1926") {
+        alert("Password errata");
+        return;
+    }
+
+    if (!confirm("Vuoi davvero resettare tutta la griglia?")) return;
+
+    await fetch(`${backend}/reset-all`, { method: "POST" });
+
+    loadNumbers();
+};
+
 loadNumbers();
 setInterval(loadNumbers, 3000);
 </script>
