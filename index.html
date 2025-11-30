@@ -1,1 +1,135 @@
-<!-- Frontend placeholder (sostituisci API_URL dopo deploy) -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabella 1-90</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f1f1;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 8px;
+            max-width: 500px;
+            margin: auto;
+        }
+
+        .number {
+            padding: 15px 0;
+            font-size: 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            user-select: none;
+            background: #4CAF50; /* Verde = disponibile */
+            color: white;
+            transition: 0.2s;
+        }
+
+        .number:hover {
+            opacity: 0.8;
+        }
+
+        .taken {
+            background: #c0392b !important; /* Rosso = acquistato */
+            cursor: not-allowed;
+        }
+
+        .buyer-name {
+            font-size: 10px;
+            margin-top: 4px;
+            color: #ffecec;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Tabella Numeri 1-90</h1>
+<div id="grid"></div>
+
+<script>
+const BACKEND_URL = "https://lotteria-backend-ar6m.onrender.com";
+
+// Carica numeri dal database
+async function loadNumbers() {
+    const res = await fetch(BACKEND_URL + "/numbers");
+    const numbers = await res.json();
+    renderGrid(numbers);
+}
+
+// Disegna la griglia
+function renderGrid(numbers) {
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+
+    numbers.forEach(num => {
+        const div = document.createElement("div");
+        div.classList.add("number");
+
+        if (num.taken) {
+            div.classList.add("taken");
+        }
+
+        div.innerHTML = num.number;
+
+        if (num.taken && num.buyer) {
+            const buyer = document.createElement("div");
+            buyer.classList.add("buyer-name");
+            buyer.innerHTML = num.buyer;
+            div.appendChild(buyer);
+        }
+
+        div.onclick = () => {
+            if (!num.taken) buyNumber(num.number);
+        };
+
+        grid.appendChild(div);
+    });
+}
+
+// Procedura acquisto numero
+function buyNumber(n) {
+    const nome = prompt("Inserisci il tuo nome:");
+    if (!nome) return;
+
+    const metodo = prompt("Scegli metodo di pagamento:\n1 = PayPal\n2 = Revolut");
+
+    if (metodo === "1") {
+        window.open("https://www.paypal.me/reimar2002/2", "_blank");
+    } else if (metodo === "2") {
+        window.open("https://revolut.me/marioreita", "_blank");
+    } else {
+        alert("Metodo non valido");
+        return;
+    }
+
+    // Dopo il pagamento, segna come acquistato su backend
+    fetch(BACKEND_URL + "/buy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ number: n, buyer: nome })
+    }).then(() => {
+        setTimeout(loadNumbers, 1500);
+    });
+}
+
+// Aggiorna ogni 3 secondi per sincronizzazione in tempo reale
+setInterval(loadNumbers, 3000);
+
+loadNumbers();
+</script>
+
+</body>
+</html>
