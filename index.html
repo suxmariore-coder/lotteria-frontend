@@ -1,243 +1,101 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tabella 1-90</title>
-
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #f1f1f1;
-        margin: 0;
-        padding: 20px;
-        text-align: center;
-    }
-
-    h1 {
-        margin-bottom: 20px;
-    }
-
-    #grid {
-        display: grid;
-        gap: 6px;
-        max-width: 100%;
-        margin: auto;
-        grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
-    }
-
-    .number {
-        padding: 12px 0;
-        font-size: 16px;
-        border-radius: 6px;
-        cursor: pointer;
-        user-select: none;
-        background: #4CAF50;
-        color: white;
-        transition: 0.2s;
-        word-break: break-word;
-    }
-
-    .number:hover {
-        opacity: 0.8;
-    }
-
-    .taken {
-        background: #c0392b !important;
-        cursor: not-allowed;
-    }
-
-    .buyer-name {
-        font-size: 10px;
-        margin-top: 4px;
-        color: #ffecec;
-    }
-
-    /* Pulsanti popup */
-    .popup-box button {
-        padding: 10px 20px;
-        margin: 10px;
-        border: none;
-        border-radius: 6px;
-        font-size: 16px;
-        cursor: pointer;
-    }
-
-    .popup-box button:hover {
-        opacity: 0.8;
-    }
-
-    .popup-box button.paypal {
-        background-color: #FF5722;
-        color: white;
-    }
-
-    .popup-box button.revolut {
-        background-color: #1F1F1F;
-        color: white;
-    }
-
-    /* Pulsanti admin */
-    #admin-controls {
-        margin: 20px 0;
-    }
-
-    #admin-controls button {
-        padding: 8px 16px;
-        margin: 5px;
-        font-size: 14px;
-        border-radius: 6px;
-        cursor: pointer;
-    }
-
-    #admin-controls button:hover {
-        opacity: 0.8;
-    }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lotteria</title>
+  <style>
+    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; }
+    #grid { display: grid; grid-template-columns: repeat(10, 50px); gap: 5px; margin-top: 20px; }
+    .number { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 5px; font-weight: bold; position: relative; }
+    .number.taken { background-color: red; color: white; cursor: default; }
+    .number.available { background-color: green; color: white; }
+    .buyer-name { position: absolute; bottom: -15px; font-size: 10px; color: black; text-align: center; width: 100%; }
+  </style>
 </head>
-
 <body>
-<h1>Tabella Numeri 1-90</h1>
+  <h1>Lotteria 1–90</h1>
+  <div id="grid"></div>
 
-<div id="admin-controls">
-    <button onclick="resetGriglia()">Reset Griglia (Admin)</button>
-    <button onclick="resetSingoloPrompt()">Reset Numero (Admin)</button>
-</div>
+  <script>
+    const BACKEND_URL = "https://lotteria-backend-ar6m.onrender.com";
 
-<div id="grid"></div>
+    async function loadNumbers() {
+      try {
+        const res = await fetch(BACKEND_URL + "/numbers");
+        if (!res.ok) throw new Error("Errore fetch: status " + res.status);
+        const numbers = await res.json();
+        if (!Array.isArray(numbers)) throw new Error("Risposta non valida");
+        renderGrid(numbers);
+      } catch (err) {
+        console.error("Impossibile caricare numeri:", err);
+      }
+    }
 
-<script>
-const BACKEND_URL = "https://lotteria-backend-ar6m.onrender.com";
-const ADMIN_PASSWORD = "Napoli-1926"; // nuova password admin
+    function renderGrid(numbers) {
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
 
-// Carica numeri dal backend
-async function loadNumbers() {
-    const res = await fetch(BACKEND_URL + "/numbers");
-    const numbers = await res.json();
-    renderGrid(numbers);
-}
-
-// Disegna griglia
-function renderGrid(numbers) {
-    const grid = document.getElementById("grid");
-    grid.innerHTML = "";
-
-    numbers.forEach(num => {
+      numbers.forEach(num => {
         const div = document.createElement("div");
         div.classList.add("number");
 
-        if (num.acquistato) div.classList.add("taken");
+        const numero = num.numero || "?";
+        const acquistato = num.acquistato === true;
+        const buyer = num.nome_acquirente || "";
 
-        div.innerHTML = num.numero;
-
-        if (num.acquistato && num.nome_acquirente) {
-            const buyer = document.createElement("div");
-            buyer.classList.add("buyer-name");
-            buyer.innerHTML = num.nome_acquirente;
-            div.appendChild(buyer);
+        if (acquistato) {
+          div.classList.add("taken");
+        } else {
+          div.classList.add("available");
+          div.onclick = () => buyNumber(numero);
         }
 
-        div.onclick = () => {
-            if (!num.acquistato) buyNumber(num.numero);
-        };
+        div.innerHTML = numero;
+
+        if (acquistato && buyer) {
+          const b = document.createElement("div");
+          b.classList.add("buyer-name");
+          b.innerText = buyer;
+          div.appendChild(b);
+        }
 
         grid.appendChild(div);
-    });
-}
+      });
+    }
 
-// Popup pagamento
-function buyNumber(n) {
-    const nome = prompt("Inserisci il tuo nome:");
-    if (!nome) return;
+    async function buyNumber(num) {
+      const buyer = prompt("Inserisci il tuo nome per acquistare il numero " + num + ":");
+      if (!buyer) return;
 
-    const popup = document.createElement("div");
-    popup.style.position = "fixed";
-    popup.style.top = "0";
-    popup.style.left = "0";
-    popup.style.width = "100%";
-    popup.style.height = "100%";
-    popup.style.backgroundColor = "rgba(0,0,0,0.5)";
-    popup.style.display = "flex";
-    popup.style.alignItems = "center";
-    popup.style.justifyContent = "center";
-    popup.style.zIndex = "9999";
+      const metodo = prompt("Scegli metodo di pagamento:\n1. PayPal\n2. Revolut");
+      if (!metodo) return;
 
-    const box = document.createElement("div");
-    box.classList.add("popup-box");
-    box.style.backgroundColor = "#fff";
-    box.style.padding = "20px";
-    box.style.borderRadius = "10px";
-    box.style.textAlign = "center";
-    box.innerHTML = `<h3>Scegli il metodo di pagamento</h3>`;
+      const paymentUrl = metodo === "1"
+        ? "https://www.paypal.com/paypalme/reimar2002/2"
+        : "https://revolut.me/marioreita";
 
-    const btnPayPal = document.createElement("button");
-    btnPayPal.classList.add("paypal");
-    btnPayPal.innerText = "PayPal";
-    btnPayPal.onclick = () => {
-        window.open("https://www.paypal.me/reimar2002/2", "_blank");
-        confirmPurchase(n, nome);
-        document.body.removeChild(popup);
-    };
+      alert("Procedi al pagamento: " + paymentUrl);
 
-    const btnRevolut = document.createElement("button");
-    btnRevolut.classList.add("revolut");
-    btnRevolut.innerText = "Revolut";
-    btnRevolut.onclick = () => {
-        window.open("https://revolut.me/marioreita", "_blank");
-        confirmPurchase(n, nome);
-        document.body.removeChild(popup);
-    };
+      try {
+        const res = await fetch(BACKEND_URL + "/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ numero: num, nome_acquirente: buyer })
+        });
 
-    box.appendChild(btnPayPal);
-    box.appendChild(btnRevolut);
-    popup.appendChild(box);
-    document.body.appendChild(popup);
-}
+        if (!res.ok) throw new Error("Errore conferma pagamento");
 
-// Conferma backend
-function confirmPurchase(n, nome) {
-    fetch(BACKEND_URL + "/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numero: n, nome: nome })
-    }).then(() => {
-        setTimeout(loadNumbers, 1500);
-    });
-}
+        await loadNumbers(); // aggiorna subito la griglia
+      } catch (err) {
+        console.error("Errore acquisto numero:", err);
+        alert("Errore nell'acquisto, riprova.");
+      }
+    }
 
-// Aggiorna griglia ogni 3 secondi
-setInterval(loadNumbers, 3000);
-loadNumbers();
-
-// ------------------ RESET ADMIN ------------------
-
-// Reset intera griglia
-function resetGriglia() {
-    const pw = prompt("Password admin:");
-    if (pw !== ADMIN_PASSWORD) { alert("Password errata!"); return; }
-
-    fetch(BACKEND_URL + "/reset", { method: "POST" })
-    .then(() => loadNumbers())
-    .catch(err => alert("Errore reset griglia"));
-}
-
-// Reset singolo numero
-function resetSingoloPrompt() {
-    const pw = prompt("Password admin:");
-    if (pw !== ADMIN_PASSWORD) { alert("Password errata!"); return; }
-
-    const n = prompt("Numero da resettare (1-90):");
-    if (!n) return;
-
-    resetSingolo(n);
-}
-
-function resetSingolo(n) {
-    fetch(`${BACKEND_URL}/reset/${n}`, { method: "POST" })
-    .then(() => loadNumbers())
-    .catch(err => alert("Errore reset numero"));
-}
-</script>
-
+    // Aggiorna griglia ogni 3 secondi per altri utenti
+    setInterval(loadNumbers, 3000);
+    loadNumbers();
+  </script>
 </body>
 </html>
