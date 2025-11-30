@@ -78,21 +78,21 @@ function renderGrid(numbers) {
         const div = document.createElement("div");
         div.classList.add("number");
 
-        if (num.taken) {
+        if (num.acquistato) {
             div.classList.add("taken");
         }
 
-        div.innerHTML = num.number;
+        div.innerHTML = num.numero;
 
-        if (num.taken && num.buyer) {
+        if (num.acquistato && num.nome_acquirente) {
             const buyer = document.createElement("div");
             buyer.classList.add("buyer-name");
-            buyer.innerHTML = num.buyer;
+            buyer.innerHTML = num.nome_acquirente;
             div.appendChild(buyer);
         }
 
         div.onclick = () => {
-            if (!num.taken) buyNumber(num.number);
+            if (!num.acquistato) buyNumber(num.numero);
         };
 
         grid.appendChild(div);
@@ -106,22 +106,24 @@ function buyNumber(n) {
 
     const metodo = prompt("Scegli metodo di pagamento:\n1 = PayPal\n2 = Revolut");
 
-    if (metodo === "1") {
-        window.open("https://www.paypal.me/reimar2002/2", "_blank");
-    } else if (metodo === "2") {
-        window.open("https://revolut.me/marioreita", "_blank");
-    } else {
+    let link;
+    if (metodo === "1") link = "https://www.paypal.me/reimar2002/2";
+    else if (metodo === "2") link = "https://revolut.me/marioreita";
+    else {
         alert("Metodo non valido");
         return;
     }
 
-    // Dopo il pagamento, segna come acquistato su backend
-    fetch(BACKEND_URL + "/buy", {
+    // Apri link pagamento
+    window.open(link, "_blank");
+
+    // Dopo il pagamento, conferma al backend
+    fetch(BACKEND_URL + "/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number: n, buyer: nome })
+        body: JSON.stringify({ numero: n, nome: nome })
     }).then(() => {
-        setTimeout(loadNumbers, 1500);
+        setTimeout(loadNumbers, 1500); // Aggiorna griglia dopo breve attesa
     });
 }
 
