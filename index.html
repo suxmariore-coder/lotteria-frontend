@@ -1,196 +1,148 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lotteria</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 10px;
-    }
-    #grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
-      gap: 5px;
-      width: 100%;
-      max-width: 500px;
-      margin-top: 20px;
-    }
-    .number {
-      width: 100%;
-      padding-top: 100%;
-      position: relative;
-      border-radius: 5px;
-      background-color: green;
-      color: white;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-    .taken {
-      background-color: red;
-      cursor: default;
-    }
-    .buyer-name {
-      position: absolute;
-      bottom: 5px;
-      width: 100%;
-      text-align: center;
-      font-size: 10px;
-      color: black;
-    }
-    #modal {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      display: none;
-      justify-content: center;
-      align-items: center;
-    }
-    #modal-content {
-      background: white;
-      padding: 20px;
-      width: 90%;
-      max-width: 300px;
-      border-radius: 10px;
-      text-align: center;
-    }
-    #modal input {
-      width: 90%;
-      padding: 8px;
-      margin-bottom: 10px;
-      font-size: 16px;
-    }
-    #modal button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 8px;
-      font-size: 16px;
-      border: none;
-      border-radius: 5px;
-      background: #007bff;
-      color: white;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lotteria 1-90</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+            background: #f5f5f5;
+        }
+        h1 { margin: 20px 0; }
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+            gap: 5px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .number {
+            padding: 15px;
+            background: #4CAF50;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            user-select: none;
+        }
+        .number.acquistato {
+            background: #f44336;
+            cursor: not-allowed;
+        }
+        #buyerName {
+            padding: 10px;
+            margin: 10px 0;
+            width: 80%;
+            max-width: 300px;
+        }
+        #paymentMethods button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        @media (max-width: 600px) {
+            .number { padding: 10px; font-size: 14px; }
+        }
+    </style>
 </head>
 <body>
-
-  <h1>Lotteria 1–90</h1>
-
-  <div id="grid"></div>
-
-  <!-- MODAL -->
-  <div id="modal">
-    <div id="modal-content">
-      <h3 id="modal-title"></h3>
-      <input type="text" id="buyer-name" placeholder="Il tuo nome">
-      <button onclick="pay('paypal')">Paga con PayPal</button>
-      <button onclick="pay('revolut')" style="background:#2929ff;">Paga con Revolut</button>
-      <button onclick="closeModal()" style="background:#999;">Annulla</button>
+    <h1>Lotteria 1-90</h1>
+    <input type="text" id="buyerName" placeholder="Inserisci il tuo nome">
+    <div id="grid"></div>
+    <div id="paymentMethods">
+        <button onclick="buy('paypal')">PayPal</button>
+        <button onclick="buy('revolut')">Revolut</button>
     </div>
-  </div>
 
-  <script>
-    const BACKEND_URL = "https://lotteria-backend-ar6m.onrender.com";
+    <script>
+        const BACKEND_URL = "https://lotteria-backend-ar6m.onrender.com";
+        let selectedNumber = null;
+        let buyerName = "";
 
-    let selectedNumber = null;
+        async function loadNumbers() {
+            try {
+                const res = await fetch(BACKEND_URL + "/numbers");
+                const numbers = await res.json();
 
-    function openModal(num) {
-      selectedNumber = num;
-      document.getElementById("modal-title").innerText = "Acquista numero " + num;
-      document.getElementById("modal").style.display = "flex";
-    }
+                const grid = document.getElementById("grid");
+                grid.innerHTML = "";
 
-    function closeModal() {
-      document.getElementById("modal").style.display = "none";
-      document.getElementById("buyer-name").value = "";
-      selectedNumber = null;
-    }
-
-    async function loadNumbers() {
-      try {
-        const res = await fetch(BACKEND_URL + "/numbers");
-        const numbers = await res.json();
-        renderGrid(numbers);
-      } catch (err) {
-        console.error("Errore caricamento numeri:", err);
-      }
-    }
-
-    function renderGrid(numbers) {
-      const grid = document.getElementById("grid");
-      grid.innerHTML = "";
-
-      numbers.forEach(num => {
-        const div = document.createElement("div");
-        div.classList.add("number");
-
-        const numero = num.numero;
-        const buyer = num.nome_acquirente || "";
-        const taken = buyer.trim() !== "";
-
-        if (taken) div.classList.add("taken");
-
-        div.innerHTML = numero;
-
-        if (taken) {
-          const b = document.createElement("div");
-          b.classList.add("buyer-name");
-          b.innerText = buyer;
-          div.appendChild(b);
-        } else {
-          div.onclick = () => openModal(numero);
+                numbers.forEach(n => {
+                    const div = document.createElement("div");
+                    div.textContent = n.numero + (n.acquistato && n.nome_acquirente ? ` (${n.nome_acquirente})` : "");
+                    div.className = "number" + (n.acquistato ? " acquistato" : "");
+                    if (!n.acquistato) {
+                        div.onclick = () => {
+                            selectedNumber = n.numero;
+                            document.querySelectorAll(".number").forEach(el => el.style.outline = "");
+                            div.style.outline = "3px solid #FFD700";
+                        }
+                    }
+                    grid.appendChild(div);
+                });
+            } catch (err) {
+                console.error("Errore caricamento numeri:", err);
+            }
         }
 
-        grid.appendChild(div);
-      });
-    }
+        async function confirmPurchase(numero, nome) {
+            try {
+                const response = await fetch(BACKEND_URL + "/confirm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ numero, nome_acquirente: nome })
+                });
 
-    function pay(method) {
-      const buyer = document.getElementById("buyer-name").value.trim();
-      if (!buyer) {
-        alert("Inserisci il tuo nome.");
-        return;
-      }
+                if (!response.ok) {
+                    console.error("Errore HTTP:", response.status);
+                    throw new Error("Errore conferma pagamento");
+                }
 
-      const payUrl =
-        method === "paypal"
-          ? "https://www.paypal.com/paypalme/reimar2002/2"
-          : "https://revolut.me/marioreita";
+                const data = await response.json();
+                console.log("Risposta backend:", data);
 
-      alert("Ora procedi al pagamento: " + payUrl);
+                if (data.success) {
+                    return true;
+                } else {
+                    throw new Error("Backend ha risposto con success = false");
+                }
 
-      confirmPurchase(selectedNumber, buyer);
-      closeModal();
-    }
+            } catch (err) {
+                console.error("Errore conferma:", err);
+                throw err;
+            }
+        }
 
-    async function confirmPurchase(num, buyer) {
-      try {
-        const res = await fetch(BACKEND_URL + "/confirm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ numero: num, nome_acquirente: buyer })
-        });
+        async function buy(method) {
+            buyerName = document.getElementById("buyerName").value.trim();
+            if (!selectedNumber || !buyerName) {
+                alert("Seleziona un numero e inserisci il tuo nome!");
+                return;
+            }
 
-        if (!res.ok) throw new Error("Errore conferma pagamento");
+            try {
+                // Qui puoi integrare PayPal o Revolut SDK se vuoi reale pagamento
+                console.log("Metodo scelto:", method);
+
+                const ok = await confirmPurchase(selectedNumber, buyerName);
+                if (ok) {
+                    alert(`Numero ${selectedNumber} acquistato con successo!`);
+                    selectedNumber = null;
+                    document.getElementById("buyerName").value = "";
+                    loadNumbers();
+                }
+            } catch (err) {
+                alert("Errore nell'acquisto. Riprova.");
+            }
+        }
 
         loadNumbers();
-      } catch (err) {
-        console.error(err);
-        alert("Errore nell'acquisto.");
-      }
-    }
-
-    setInterval(loadNumbers, 3000);
-    loadNumbers();
-  </script>
-
+    </script>
 </body>
 </html>
