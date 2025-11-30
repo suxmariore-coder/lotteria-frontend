@@ -5,12 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lotteria</title>
   <style>
-    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; }
-    #grid { display: grid; grid-template-columns: repeat(10, 50px); gap: 5px; margin-top: 20px; }
-    .number { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 5px; font-weight: bold; position: relative; }
-    .number.taken { background-color: red; color: white; cursor: default; }
-    .number.available { background-color: green; color: white; }
-    .buyer-name { position: absolute; bottom: -15px; font-size: 10px; color: black; text-align: center; width: 100%; }
+    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 10px; }
+    #grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 5px; width: 100%; max-width: 500px; margin-top: 20px; }
+    .number { width: 100%; padding-top: 100%; position: relative; border-radius: 5px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; background-color: green; color: white; text-align: center; }
+    .number.taken { background-color: red; cursor: default; }
+    .number span { position: absolute; top: 10%; left: 50%; transform: translateX(-50%); }
+    .buyer-name { position: absolute; bottom: 40px; font-size: 10px; color: black; width: 100%; text-align: center; }
+    .payment-buttons { position: absolute; bottom: 2px; display: flex; gap: 2px; justify-content: center; width: 100%; }
+    .payment-buttons button { font-size: 10px; padding: 2px; flex: 1; }
   </style>
 </head>
 <body>
@@ -41,37 +43,48 @@
         div.classList.add("number");
 
         const numero = num.numero || "?";
-        const acquistato = num.acquistato === true;
-        const buyer = num.nome_acquirente || "";
+        const buyer = num.acquirente || "";
+        const acquistato = buyer && buyer.trim() !== "";
+
+        if (acquistato) div.classList.add("taken");
+
+        const spanNum = document.createElement("span");
+        spanNum.innerText = numero;
+        div.appendChild(spanNum);
 
         if (acquistato) {
-          div.classList.add("taken");
-        } else {
-          div.classList.add("available");
-          div.onclick = () => buyNumber(numero);
-        }
-
-        div.innerHTML = numero;
-
-        if (acquistato && buyer) {
           const b = document.createElement("div");
           b.classList.add("buyer-name");
           b.innerText = buyer;
           div.appendChild(b);
+        } else {
+          // crea i bottoni dei pagamenti
+          const buttonsDiv = document.createElement("div");
+          buttonsDiv.classList.add("payment-buttons");
+
+          const paypalBtn = document.createElement("button");
+          paypalBtn.innerText = "PayPal";
+          paypalBtn.onclick = () => buyNumber(numero, "paypal");
+
+          const revolutBtn = document.createElement("button");
+          revolutBtn.innerText = "Revolut";
+          revolutBtn.onclick = () => buyNumber(numero, "revolut");
+
+          buttonsDiv.appendChild(paypalBtn);
+          buttonsDiv.appendChild(revolutBtn);
+
+          div.appendChild(buttonsDiv);
         }
 
         grid.appendChild(div);
       });
     }
 
-    async function buyNumber(num) {
+    async function buyNumber(num, metodo) {
       const buyer = prompt("Inserisci il tuo nome per acquistare il numero " + num + ":");
       if (!buyer) return;
 
-      const metodo = prompt("Scegli metodo di pagamento:\n1. PayPal\n2. Revolut");
-      if (!metodo) return;
-
-      const paymentUrl = metodo === "1"
+      const paymentUrl = metodo === "paypal"
         ? "https://www.paypal.com/paypalme/reimar2002/2"
         : "https://revolut.me/marioreita";
 
@@ -81,7 +94,7 @@
         const res = await fetch(BACKEND_URL + "/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ numero: num, nome_acquirente: buyer })
+          body: JSON.stringify({ numero: num, acquirente: buyer })
         });
 
         if (!res.ok) throw new Error("Errore conferma pagamento");
@@ -93,7 +106,6 @@
       }
     }
 
-    // Aggiorna griglia ogni 3 secondi per altri utenti
     setInterval(loadNumbers, 3000);
     loadNumbers();
   </script>
