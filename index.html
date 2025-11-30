@@ -50,6 +50,9 @@
             .number { padding: 10px; font-size: 14px; }
         }
     </style>
+
+    <!-- PayPal SDK -->
+    <script src="https://www.paypal.com/sdk/js?client-id=YOUR_CLIENT_ID&currency=EUR"></script>
 </head>
 <body>
     <h1>Lotteria 1-90</h1>
@@ -57,8 +60,8 @@
     <div id="grid"></div>
 
     <div id="paymentMethods">
-        <button onclick="buy('paypal')">PayPal</button>
-        <button onclick="buy('revolut')">Revolut</button>
+        <div id="paypal-button-container"></div>
+        <button onclick="buyRevolut()">Revolut</button>
     </div>
 
     <div id="resetSection" style="margin-top:20px;">
@@ -87,18 +90,14 @@
                     div.textContent = n.numero + (n.acquistato && n.nome_acquirente ? ` (${n.nome_acquirente})` : "");
                     div.className = "number" + (n.acquistato ? " acquistato" : "");
 
-                    // Se il numero NON è acquistato, renderlo cliccabile
                     if (!n.acquistato) {
                         div.onclick = () => {
                             selectedNumber = n.numero;
-                            // Rimuove outline da tutti
                             document.querySelectorAll(".number").forEach(el => el.style.outline = "");
-                            // Evidenzia il selezionato
                             div.style.outline = "3px solid #FFD700";
                         }
                     }
 
-                    // Se il numero resettato era precedentemente selezionato, mostra outline
                     if (selectedNumber === n.numero && !n.acquistato) {
                         div.style.outline = "3px solid #FFD700";
                     }
@@ -126,11 +125,8 @@
                 const data = await response.json();
                 console.log("Risposta backend:", data);
 
-                if (data.success) {
-                    return true;
-                } else {
-                    throw new Error("Backend ha risposto con success = false");
-                }
+                if (data.success) return true;
+                else throw new Error("Backend ha risposto con success = false");
 
             } catch (err) {
                 console.error("Errore conferma:", err);
@@ -138,27 +134,54 @@
             }
         }
 
-        async function buy(method) {
-            buyerName = document.getElementById("buyerName").value.trim();
+        // -------------------------------
+        // PAYPAL
+        paypal.Buttons({
+            createOrder: function(data, actions) {
+                return actions.order.create({
+                    purchase_units: [{
+                        amount: { value: '2.00' }
+                    }]
+                });
+            },
+            onApprove: function(data, actions) {
+                return actions.order.capture().then(async function(details) {
+                    const buyerName = document.getElementById("buyerName").value.trim();
+                    const numero = selectedNumber;
+                    if (!numero || !buyerName) {
+                        alert("Seleziona un numero e inserisci il tuo nome!");
+                        return;
+                    }
+                    await confirmPurchase(numero, buyerName);
+                    alert(`Numero ${numero} acquistato con PayPal!`);
+                    selectedNumber = null;
+                    document.getElementById("buyerName").value = "";
+                    loadNumbers();
+                });
+            }
+        }).render('#paypal-button-container');
+
+        // -------------------------------
+        // REVOLUT
+        async function buyRevolut() {
+            const buyerName = document.getElementById("buyerName").value.trim();
             if (!selectedNumber || !buyerName) {
                 alert("Seleziona un numero e inserisci il tuo nome!");
                 return;
             }
 
-            try {
-                console.log("Metodo scelto:", method); // placeholder per pagamento reale
-                const ok = await confirmPurchase(selectedNumber, buyerName);
-                if (ok) {
-                    alert(`Numero ${selectedNumber} acquistato con successo!`);
-                    selectedNumber = null;
-                    document.getElementById("buyerName").value = "";
-                    loadNumbers();
-                }
-            } catch (err) {
-                alert("Errore nell'acquisto. Riprova.");
-            }
+            const confirmPay = confirm("Hai completato il pagamento su Revolut? Clicca OK per confermare l'acquisto.");
+            if (!confirmPay) return;
+
+            await confirmPurchase(selectedNumber, buyerName);
+            alert(`Numero ${selectedNumber} acquistato con Revolut!`);
+            selectedNumber = null;
+            document.getElementById("buyerName").value = "";
+            loadNumbers();
         }
 
+        // -------------------------------
+        // RESET
         async function resetAll() {
             const pwd = document.getElementById("adminPassword").value;
             if (pwd !== ADMIN_PASSWORD) { alert("Password errata!"); return; }
@@ -193,7 +216,6 @@
                     body: JSON.stringify({ numero: selectedNumber })
                 });
                 alert(`Numero ${selectedNumber} resettato!`);
-                // Mantieni selectedNumber per poterlo selezionare subito
                 loadNumbers();
             } catch (err) {
                 console.error("Errore reset numero:", err);
